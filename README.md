@@ -1,10 +1,35 @@
-Installtion Manual:
-1. Open the CMD and find the installation based on your OS: https://docs.astral.sh/uv/getting-started/installation/#__tabbed_1_2
-2. Once finished enter VSCode and clone newkit's repo.
-3. Enter the command inside the vscode terminal "uv run" which will install the packages needed for newkit's project. 
+<h1 align="center">
+  <br>
+  <img src="https://i.imgur.com/6dmGfVb.png" alt="Newkit" width="200"></a>
+  <br>
+  NewKit
+  <br>
+</h1>
 
+# Quick start guide:
+
+Install "uv" based on your OS: 
+
+[uv installation documentation](https://docs.astral.sh/uv/getting-started/installation/#__tabbed_1_2)
+
+Clone Repository:
+
+```
+git clone https://github.com/Adelo-dev/NewKit
+```
+
+Run main.py through uv to create a venv:
+```
+uv run main.py
+```
+
+# Extra
 Adding new packages:
-1. Inside the terminal enter the commnad uv add (package_name)
+```
+uv add <package_name>
+```
 
-Python Pep Checker:
-1. Enter the command uvx ruff check to check if your project is meeting the python pep standards. 
+Use ruff to check for linter and code formatting issues:
+```
+uvx ruff check
+```
