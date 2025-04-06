@@ -1,4 +1,5 @@
 import cv2 as cv
+from typing import Union
 from inferencers.base_inferencer import BaseInferencer
 
 class VideoInferencer(BaseInferencer):
@@ -6,10 +7,10 @@ class VideoInferencer(BaseInferencer):
     def __init__(self, debug_mode: bool=False):
         super().__init__(debug_mode=debug_mode)
 
-    def inference(self, video_path: str, output_path: str=None, show=True, should_infer: bool=True):
-        cap = cv.VideoCapture(video_path)
+    def inference(self, stream_path: Union[str, int]=0, output_path: str=None, show=True, should_infer: bool=True):
+        cap = cv.VideoCapture(stream_path)
         processed_frames = [] 
-
+        
         if cap.isOpened():
             while cap.isOpened():
                 ret, frame = cap.read()

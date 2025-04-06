@@ -7,7 +7,7 @@ class BaseInferencer():
         self.debug_mode: bool = debug_mode
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(level=logging.DEBUG if debug_mode else logging.INFO)
-        self.pose: mp_solutions.pose.Pose = mp_solutions.pose.Pose(static_image_mode=True)
+        self.pose: mp_solutions.pose.Pose = mp_solutions.pose.Pose(static_image_mode=False)
 
     def inference(self, image):
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
