@@ -6,7 +6,7 @@ class VideoInferencer(BaseInferencer):
     def __init__(self, debug_mode: bool=False):
         super().__init__(debug_mode=debug_mode)
 
-    def inference(self, video_path: str, output_path: str, show=True, should_infer: bool=True):
+    def inference(self, video_path: str, output_path: str=None, show=True, should_infer: bool=True):
         cap = cv.VideoCapture(video_path)
         processed_frames = [] 
 
@@ -31,20 +31,21 @@ class VideoInferencer(BaseInferencer):
             self.logger.error("Error: Unable to open video stream.")
             return
 
-        height, width, _ = processed_frames[0].shape
-        fps = cap.get(cv.CAP_PROP_FPS)
+        if output_path:
+            height, width, _ = processed_frames[0].shape
+            fps = cap.get(cv.CAP_PROP_FPS)
 
-        fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
+            fourcc = cv.VideoWriter_fourcc(*'mp4v')
+            out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
 
-        for frame in processed_frames:
-            out.write(frame)
+            for frame in processed_frames:
+                out.write(frame)
 
-        out.release()
-        cap.release()
-        cv.destroyAllWindows()
+            out.release()
+            cap.release()
+            cv.destroyAllWindows()
 
-        if out:
-            self.logger.info(f"Video saved to {output_path}.")
-        else:
-            self.logger.error("Error: Unable to save video.")
+            if out:
+                self.logger.info(f"Video saved to {output_path}.")
+            else:
+                self.logger.error("Error: Unable to save video.")

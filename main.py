@@ -5,7 +5,7 @@ def main():
     # image_inference = ImageInference(debug_mode=True)
     video_inference = VideoInferencer(debug_mode=True)
     # image_inference.inference(image_path='sample_data/sample.jpg', output_path='output/standing_result.jpg')
-    video_inference.inference('sample_data/sample_dips.mp4', 'output/pushups_result.mp4', show=False)
+    video_inference.inference('sample_data/sample_dips.mp4')
 
 
 if __name__ == "__main__":
