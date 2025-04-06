@@ -6,7 +6,7 @@ class VideoInferencer(BaseInferencer):
     def __init__(self, debug_mode: bool=False):
         super().__init__(debug_mode=debug_mode)
 
-    def inference(self, video_path: str, output_path: str, should_infer: bool=False):
+    def inference(self, video_path: str, output_path: str, show=True, should_infer: bool=True):
         cap = cv.VideoCapture(video_path)
         processed_frames = [] 
 
@@ -14,20 +14,24 @@ class VideoInferencer(BaseInferencer):
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
-                    print("Can't receive frame (stream end?). Exiting ...")
-                    break  
+                    self.logger.info("End of video stream.")
+                    break
+
                 if should_infer:
                     frame, _ = super().inference(frame)
+
                 processed_frames.append(frame)
-                cv.imshow('frame', frame)
-                if cv.waitKey(1) == ord('q'):
-                    break
+
+                if show:
+                    cv.imshow('frame', frame)
+                    if cv.waitKey(1) == ord('q'):
+                        break
 
         else:
             self.logger.error("Error: Unable to open video stream.")
             return
 
-        height, width, _= processed_frames[0].shape
+        height, width, _ = processed_frames[0].shape
         fps = cap.get(cv.CAP_PROP_FPS)
 
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
