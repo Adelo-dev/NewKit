@@ -1,25 +1,30 @@
+import logging
+import numpy
 import cv2
-import mediapipe as mp
-class ImageInference():
-    """ The following class processes an image using cv2 and mediapipe and returns the picture"""
-    def __init__(self):
-        self.pose = mp.solutions.pose.Pose(static_image_mode=True)
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.mp_pose = mp.solutions.pose
+from inferencers.base_inferencer import BaseInferencer
+class ImageInference(BaseInferencer):
+    """Class for performing image inference using MediaPipe Pose.
+    This class uses the MediaPipe Pose solution to detect and draw pose landmarks on images.
+    It can process images in static mode and save the output to a specified path.
+    """
 
-    def inference(self, image_path: str, output_path: str, should_infer: bool=False):
-        image = cv2.imread(image_path)
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    def __init__(self, debug_mode: bool=False):
+        super().__init__(debug_mode=debug_mode)
+
+    def inference(self, image_path: str, output_path: str=None, should_infer: bool=True) -> None:
+        image: numpy.ndarray = cv2.imread(image_path)
+        if image is None:
+            self.logger.error(f"Error: Unable to load image at {image_path}.")
+            return
+
         if should_infer:
-            results = self.pose.process(image_rgb)
-            if results.pose_landmarks:
-                self.mp_drawing.draw_landmarks(
-                    image,
-                    results.pose_landmarks,
-                    self.mp_pose.POSE_CONNECTIONS,
-                    landmark_drawing_spec=self.mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2),
-                    connection_drawing_spec=self.mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2)
-                )     
-                cv2.imwrite(output_path, image)
-                return
-        cv2.imwrite(output_path, image)
+            image, pose_landmarks = super().inference(image=image)
+            self.logger.info("Finished processing the image.")
+            self.logger.debug(f"Number of landmarks detected: {len(pose_landmarks.landmark)}")
+
+        if output_path:
+            cv2.imwrite(output_path, image)
+            self.logger.info(f"Output image saved to {output_path}.")
+
+        if should_infer:
+            return pose_landmarks
