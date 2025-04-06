@@ -5,7 +5,7 @@ from inferencers.base_inferencer import BaseInferencer
 class VideoInferencer(BaseInferencer):
     """ The following class processes an video or camera stream using cv2 and mediapipe and returns the saves the video. """
     def __init__(self, debug_mode: bool=False):
-        super().__init__(debug_mode=debug_mode)
+        super().__init__(debug_mode=debug_mode, static_image_mode=False)
 
     def inference(self, stream_path: Union[str, int]=0, output_path: str=None, show=True, should_infer: bool=True):
         cap = cv.VideoCapture(stream_path)
