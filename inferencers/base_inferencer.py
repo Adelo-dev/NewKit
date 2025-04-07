@@ -3,7 +3,7 @@ import cv2
 import mediapipe.python.solutions as mp_solutions
 
 class BaseInferencer():
-    def __init__(self, debug_mode: bool=False):
+    def __init__(self, debug_mode: bool=False, static_image_mode: bool=True):
         self.debug_mode: bool = debug_mode
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(level=logging.DEBUG if debug_mode else logging.INFO)
