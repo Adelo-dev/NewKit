@@ -9,11 +9,19 @@ class VideoInferencer(BaseInferencer):
 
     def inference(self, stream_path: Union[str, int]=0, output_path: str=None, show=True, should_infer: bool=True):
         cap = cv.VideoCapture(stream_path)
-        processed_frames = [] 
-        
+        video_writer = None
+
         if cap.isOpened():
+            ret, frame = cap.read()
+
+            if output_path:
+                height, width, _ = frame.shape
+                fps = cap.get(cv.CAP_PROP_FPS)
+
+                fourcc = cv.VideoWriter_fourcc(*'mp4v')
+                video_writer = cv.VideoWriter(output_path, fourcc, fps, (width, height))
+
             while cap.isOpened():
-                ret, frame = cap.read()
                 if not ret:
                     self.logger.info("End of video stream.")
                     break
@@ -21,32 +29,23 @@ class VideoInferencer(BaseInferencer):
                 if should_infer:
                     frame, _ = super().inference(frame)
 
-                processed_frames.append(frame)
-
                 if show:
                     cv.imshow('frame', frame)
                     if cv.waitKey(1) == ord('q'):
                         break
 
+                if video_writer:
+                    video_writer.write(frame)
+
+                ret, frame = cap.read()
+
+            if video_writer:
+                self.logger.info(f"Video saved to {output_path}.")
+                video_writer.release()
+            else:
+                self.logger.error("Error: Unable to save video.")
+            cap.release()
+            cv.destroyAllWindows()
         else:
             self.logger.error("Error: Unable to open video stream.")
             return
-
-        if output_path:
-            height, width, _ = processed_frames[0].shape
-            fps = cap.get(cv.CAP_PROP_FPS)
-
-            fourcc = cv.VideoWriter_fourcc(*'mp4v')
-            out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
-
-            for frame in processed_frames:
-                out.write(frame)
-
-            out.release()
-            cap.release()
-            cv.destroyAllWindows()
-
-            if out:
-                self.logger.info(f"Video saved to {output_path}.")
-            else:
-                self.logger.error("Error: Unable to save video.")
