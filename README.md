@@ -31,5 +31,5 @@ uv add <package_name>
 
 Use ruff to check for linter and code formatting issues:
 ```
-uvx ruff check
+uvx ruff check 
 ```
