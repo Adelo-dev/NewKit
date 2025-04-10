@@ -36,7 +36,9 @@ def test_image_inferencer_specific_method(image_inferencer):
     os.remove(output_path)
 
 def test_video_inferencer_specific_method(video_inferencer):
-    output_path = f'output/{uuid.uuid4()}.mp4'
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(script_dir, '..', 'output', f'{uuid.uuid4()}.mp4')
+    print("CWD:", os.getcwd())
     video_inferencer.inference(stream_path="sample_data/sample_dips.mp4",
                                         output_path=output_path,
                                         show=False)
