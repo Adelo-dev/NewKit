@@ -2,8 +2,8 @@ import logging
 import cv2
 import mediapipe.python.solutions as mp_solutions
 
-class BaseInferencer():
-    def __init__(self, debug_mode: bool=False, static_image_mode: bool=True):
+class BaseInferencer:
+    def __init__(self, debug_mode: bool = False, static_image_mode: bool = True):
         self.debug_mode: bool = debug_mode
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(level=logging.DEBUG if debug_mode else logging.INFO)
@@ -18,29 +18,38 @@ class BaseInferencer():
             enable_segmentation=False,
             refine_face_landmarks=True,
             min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_tracking_confidence=0.5,
         )
-        
-    def draw_landmarks_safe(self, image, landmarks, connections, landmark_color, connection_color, thickness=2, radius=2):
+
+    def draw_landmarks_safe(self, image, landmarks, connections, landmark_color,
+                                connection_color, thickness=2, radius=2):
         if landmarks:
             drawing_utils = mp_solutions.drawing_utils
             drawing_utils.draw_landmarks(
                 image=image,
                 landmark_list=landmarks,
                 connections=connections,
-                landmark_drawing_spec=drawing_utils.DrawingSpec(color=landmark_color, thickness=thickness, circle_radius=radius),
-                connection_drawing_spec=drawing_utils.DrawingSpec(color=connection_color, thickness=thickness)
+                landmark_drawing_spec=drawing_utils.DrawingSpec(color=landmark_color,
+                                                                thickness=thickness,
+                                                                circle_radius=radius),
+                connection_drawing_spec=drawing_utils.DrawingSpec(color=connection_color,
+                                                                thickness=thickness)
             )
-        
-    def inference(self, image): 
+
+    def inference(self, image):
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = self.holistic.process(image_rgb) 
-        
+        results = self.holistic.process(image_rgb)
+
         landmark_groups = [
-            (image, results.pose_landmarks, mp_solutions.pose.POSE_CONNECTIONS, (0, 255, 0), (0, 0, 255)),
-            (image, results.left_hand_landmarks, mp_solutions.holistic.HAND_CONNECTIONS, (255, 0, 0), (255, 255, 255)),
-            (image, results.right_hand_landmarks, mp_solutions.holistic.HAND_CONNECTIONS, (0, 0, 255), (255, 255, 255)),
-            (image, results.face_landmarks, mp_solutions.holistic.FACEMESH_TESSELATION, (80, 110, 10), (80, 256, 121), 1, 1)
+            (image, results.pose_landmarks,
+            mp_solutions.pose.POSE_CONNECTIONS, (0, 255, 0), (0, 0, 255)),
+            (image, results.left_hand_landmarks,
+            mp_solutions.holistic.HAND_CONNECTIONS, (255, 0, 0), (255, 255, 255)),
+            (image, results.right_hand_landmarks,
+            mp_solutions.holistic.HAND_CONNECTIONS, (0, 0, 255), (255, 255, 255)),
+            (image, results.face_landmarks,
+            mp_solutions.holistic.FACEMESH_TESSELATION, (80, 110, 10), (80, 256, 121),
+            1, 1)
         ]
 
         for landmark in landmark_groups:
