@@ -1,6 +1,5 @@
 import os
 import uuid
-import glob
 import pytest
 from inferencers.base_inferencer import BaseInferencer
 from inferencers.image_inferencer import ImageInference
@@ -37,13 +36,10 @@ def test_image_inferencer_specific_method(image_inferencer):
     os.remove(output_path)
 
 def test_video_inferencer_specific_method(video_inferencer):
-    output_path = os.path.join(os.getcwd(), 'output', f'{uuid.uuid4()}.mp4')
-    print("CWD:", os.getcwd())
-    print("Output_path:", output_path)
-    print(glob.glob('output/*'))
+    output_path = f'output/{uuid.uuid4()}.mp4'
+
     video_inferencer.inference(stream_path="sample_data/sample_dips.mp4",
                                         output_path=output_path,
                                         show=False)
-    assert os.path.exists(output_path)
-    assert os.path.getsize(output_path) > 0
+    assert os.path.exists(output_path) and os.path.getsize(output_path) > 0
     os.remove(output_path)
