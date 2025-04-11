@@ -34,6 +34,7 @@ class VideoInferencer(BaseInferencer):
                     frame, _ = super().inference(frame)
 
                 if show:
+                    self.draw_hud(frame)
                     cv.imshow("frame", frame)
                     if cv.waitKey(1) == ord("q"):
                         break

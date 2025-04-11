@@ -31,6 +31,7 @@ class ImageInference(BaseInferencer):
             self.logger.info(f"Output image saved to {output_path}.")
 
         if show:
+            self.draw_hud(image)
             cv.imshow("frame", image)
             cv.waitKey(0)
 

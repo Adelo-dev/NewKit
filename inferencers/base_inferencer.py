@@ -5,7 +5,7 @@ import mediapipe.python.solutions as mp_solutions
 class BaseInferencer:
     def __init__(self, debug_mode: bool = False, static_image_mode: bool = True):
         self.debug_mode: bool = debug_mode
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(name=self.__class__.__name__)
         logging.basicConfig(level=logging.DEBUG if debug_mode else logging.INFO)
         self.pose: mp_solutions.pose.Pose = mp_solutions.pose.Pose(
             static_image_mode=False,
@@ -22,7 +22,7 @@ class BaseInferencer:
         )
 
     def draw_landmarks_safe(self, image, landmarks, connections, landmark_color,
-                                connection_color, thickness=2, radius=2):
+                                connection_color, thickness=2, radius=2) -> None:
         if landmarks:
             drawing_utils = mp_solutions.drawing_utils
             drawing_utils.draw_landmarks(
@@ -36,7 +36,21 @@ class BaseInferencer:
                                                                 thickness=thickness)
             )
 
-    def inference(self, image):
+    def put_text_safe(self, image, text, position,
+                      color=(0, 255, 0), font_scale=1, thickness=2):
+        if image is not None:
+            cv2.putText(image,
+                        text,
+                        position,
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale,
+                        color,
+                        thickness)
+
+    def draw_hud(self, image) -> None:
+        self.put_text_safe(image, "Press 'q' to quit", (10, 30))
+
+    def inference(self, image) -> tuple:
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.holistic.process(image_rgb)
 
