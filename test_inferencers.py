@@ -1,9 +1,12 @@
 import os
 import uuid
+
 import pytest
+
 from inferencers.base_inferencer import BaseInferencer
 from inferencers.image_inferencer import ImageInference
 from inferencers.video_inferencer import VideoInferencer
+
 
 @pytest.fixture
 def base_inferencer() -> BaseInferencer:
@@ -39,9 +42,10 @@ def test_image_inferencer_specific_method(image_inferencer) -> None:
 def test_video_inferencer_specific_method(video_inferencer) -> None:
     output_path = f'output/{uuid.uuid4()}.mp4'
 
-    video_inferencer.inference(stream_path="sample_data/sample_knuckle_pushups.mp4",
+    result = video_inferencer.inference(stream_path="sample_data/sample_knuckle_pushups.mp4",
                                         output_path=output_path,
                                         show=False)
     assert os.path.exists(path=output_path)
     assert os.path.getsize(filename=output_path) > 0
+    assert result is not None
     os.remove(path=output_path)

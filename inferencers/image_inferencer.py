@@ -1,5 +1,6 @@
-import numpy
 import cv2 as cv
+import numpy
+
 from inferencers.base_inferencer import BaseInferencer
 
 

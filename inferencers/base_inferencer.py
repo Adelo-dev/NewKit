@@ -1,6 +1,8 @@
 import logging
+
 import cv2
 import mediapipe.python.solutions as mp_solutions
+
 
 class BaseInferencer:
     def __init__(self, debug_mode: bool = False, static_image_mode: bool = True):
@@ -21,7 +23,8 @@ class BaseInferencer:
             min_tracking_confidence=0.5,
         )
 
-    def draw_landmarks_safe(self, image, landmarks, connections, landmark_color,
+    @staticmethod
+    def draw_landmarks_safe(image, landmarks, connections, landmark_color,
                                 connection_color, thickness=2, radius=2) -> None:
         if landmarks:
             drawing_utils = mp_solutions.drawing_utils
@@ -36,7 +39,8 @@ class BaseInferencer:
                                                                 thickness=thickness)
             )
 
-    def put_text_safe(self, image, text, position,
+    @staticmethod
+    def put_text_safe(image, text, position,
                       color=(0, 255, 0), font_scale=1, thickness=2):
         if image is not None:
             cv2.putText(image,
@@ -47,13 +51,21 @@ class BaseInferencer:
                         color,
                         thickness)
 
-    def draw_hud(self, image) -> None:
-        self.put_text_safe(image, "Press 'q' to quit", (10, 30))
+    @staticmethod
+    def flatten_landmark_features(landmarks):
+    # Flatten into a single feature vector (x, y only, normalized)
+        features = []
+        for lm in landmarks.landmark:
+            features.extend([lm.x, lm.y])
+        return features
+
+    @staticmethod
+    def draw_hud(image) -> None:
+        BaseInferencer.put_text_safe(image, "Press 'q' to quit", (10, 30))
 
     def inference(self, image) -> tuple:
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.holistic.process(image_rgb)
-
         landmark_groups = [
             (image, results.pose_landmarks,
             mp_solutions.pose.POSE_CONNECTIONS, (0, 255, 0), (0, 0, 255)),

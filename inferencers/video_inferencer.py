@@ -1,5 +1,8 @@
-import cv2 as cv
 from typing import Union
+
+import cv2 as cv
+import numpy as np
+
 from inferencers.base_inferencer import BaseInferencer
 
 
@@ -14,6 +17,7 @@ class VideoInferencer(BaseInferencer):
                         show=True, should_infer: bool=True):
         cap = cv.VideoCapture(stream_path)
         video_writer = None
+        features = []
 
         if cap.isOpened():
             ret, frame = cap.read()
@@ -31,7 +35,8 @@ class VideoInferencer(BaseInferencer):
                     break
 
                 if should_infer:
-                    frame, _ = super().inference(frame)
+                    frame, landmarks = super().inference(frame)
+                    features.append(self.flatten_landmark_features(landmarks))
 
                 if show:
                     self.draw_hud(frame)
@@ -47,10 +52,9 @@ class VideoInferencer(BaseInferencer):
             if video_writer:
                 self.logger.info(f"Video saved to {output_path}.")
                 video_writer.release()
-            else:
-                self.logger.error("Error: Unable to save video.")
             cap.release()
             cv.destroyAllWindows()
+            return np.array(features)
         else:
             self.logger.error("Error: Unable to open video stream.")
             return

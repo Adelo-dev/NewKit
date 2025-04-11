@@ -1,6 +1,8 @@
 import os
 from glob import glob
+
 from tqdm import tqdm
+
 from inferencers.image_inferencer import ImageInference
 from inferencers.video_inferencer import VideoInferencer
 
