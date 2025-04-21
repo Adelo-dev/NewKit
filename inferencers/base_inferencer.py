@@ -3,6 +3,9 @@ import logging
 import cv2
 import mediapipe.python.solutions as mp_solutions
 
+from data_processing.angle_calculator import JointAngleCalculator
+from data_processing.pose_embedding import FullBodyPoseEmbedder
+
 
 class BaseInferencer:
     def __init__(self, debug_mode: bool = False, static_image_mode: bool = True):
@@ -22,7 +25,8 @@ class BaseInferencer:
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         )
-
+        self.embedder = FullBodyPoseEmbedder()
+        self.angle_calculator = JointAngleCalculator()
     @staticmethod
     def draw_landmarks_safe(image, landmarks, connections, landmark_color,
                                 connection_color, thickness=2, radius=2) -> None:
@@ -53,10 +57,10 @@ class BaseInferencer:
 
     @staticmethod
     def flatten_landmark_features(landmarks):
-    # Flatten into a single feature vector (x, y only, normalized)
+    # Flatten into a single feature vector (x, y, z and visablitiy) per landmark
         features = []
         for lm in landmarks.landmark:
-            features.extend([lm.x, lm.y])
+            features.extend([lm.x, lm.y, lm.z, lm.visibility])
         return features
 
     @staticmethod

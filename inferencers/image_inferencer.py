@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy
 
 from inferencers.base_inferencer import BaseInferencer
+from utils import write_pose_csv_row
 
 
 class ImageInference(BaseInferencer):
@@ -13,9 +14,11 @@ class ImageInference(BaseInferencer):
     def inference(self, image_path: str,
                         output_path: str=None,
                         show=True,
-                        should_infer: bool=True):
+                        should_infer: bool=True,
+                        save_csv: str=None):
         image: numpy.ndarray = cv.imread(image_path)
         pose_landmarks = None
+        frame_number = 0
         if image is None:
             self.logger.error(f"Error: Unable to load image at {image_path}.")
             return
@@ -26,6 +29,19 @@ class ImageInference(BaseInferencer):
             self.logger.debug(
                 f"Number of landmarks detected: {len(pose_landmarks.landmark)}"
             )
+            if pose_landmarks:
+                self.logger.debug(
+                    f"Number of landmarks detected: {len(pose_landmarks.landmark)}"
+                )
+
+                if save_csv:
+                    write_pose_csv_row(
+                        csv_path=save_csv,
+                        video_name=str(image_path),
+                        frame_number=frame_number,
+                        landmark_data=pose_landmarks,
+                        write_header=True  # Only one image
+                    )
 
         if output_path:
             cv.imwrite(output_path, image)
