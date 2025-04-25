@@ -1,125 +1,48 @@
 import csv
 import os
 
-
-# ------------------------- #
-#   LANDMARKS CSV UTILS     #
-# ------------------------- #
-
-def generate_landmark_header():
-    """
-    Returns a CSV header for 33 pose landmarks:
-    video_name, frame_number, landmark_0_x, ..., landmark_32_visibility
-    """
-    header = ["file_name", "frame_number"]
-    for i in range(33):
-        header += [
-            f"landmark_{i}_x",
-            f"landmark_{i}_y",
-            f"landmark_{i}_z",
-            f"landmark_{i}_visibility"
-        ]
-    return header
+import pandas as pd
 
 
-def write_pose_csv_row(csv_path, video_name, frame_number, landmark_data, write_header=False):
-    """
-    Writes a single row to a CSV containing MediaPipe pose landmark data.
-
-    Args:
-        csv_path (str): Path to the CSV file.
-        video_name (str): Name of the video.
-        frame_number (int): The current frame number.
-        landmark_data (NormalizedLandmarkList): MediaPipe pose_landmarks object.
-        write_header (bool): Whether to write the header (only on first call).
-    """
-    # Create directory if needed
+def write_pose_embedding_csv_row(csv_path: str, embedding):
     output_dir = os.path.dirname(csv_path)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    with open(csv_path, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
+    embedding_flat_list = embedding.flatten().tolist()
+    df = pd.DataFrame([embedding_flat_list])
 
-        if write_header:
-            writer.writerow(generate_landmark_header())
+    # Check if the file exists to determine if we need to write the header
+    file_exists = os.path.exists(csv_path)
 
-        row = [video_name, frame_number]
-        for lm in landmark_data.landmark:
-            row.extend([
-                round(lm.x, 5),
-                round(lm.y, 5),
-                round(lm.z, 5),
-                round(lm.visibility, 5)
-            ])
+    if not file_exists:
+        df.to_csv(csv_path, mode='w', header=True, index=False)
+    else:
+        df.to_csv(csv_path, mode='a', header=False, index=False)
 
-        writer.writerow(row)
+def dump_for_the_app():
+    pose_samples_folder = 'fitness_poses_csvs_out'
+    pose_samples_csv_path = 'combined_fitness_poses_csv_out/fitness_poses_csvs_out.csv'
+    file_extension = 'csv'
+    file_separator = ','
 
+    # Each file in the folder represents one pose class.
+    file_names = [name for name in os.listdir(pose_samples_folder) if name.endswith(file_extension)]
 
-# --------------------------- #
-#   EMBEDDING CSV UTILS       #
-# --------------------------- #
+    with open(pose_samples_csv_path, 'w') as csv_out:
+        csv_out_writer = csv.writer(csv_out, delimiter=file_separator, quoting=csv.QUOTE_MINIMAL)
+        for file_name in file_names:
+        # Use file name as pose class name.
+            class_name = file_name[:-(len(file_extension) + 1)]
 
-def generate_embedding_header(embedding_names):
-    """
-    Create CSV header using landmark pair names for 3D vector embedding.
-    Each pair adds 3 columns: dx, dy, dz.
-    """
-    header = ["file_name", "frame_number"]
-    for from_lmk, to_lmk in embedding_names:
-        header.extend([
-            f"{from_lmk}_to_{to_lmk}_dx",
-            f"{from_lmk}_to_{to_lmk}_dy",
-            f"{from_lmk}_to_{to_lmk}_dz"
-        ])
-    return header
-
-
-def write_pose_embedding_csv_row(csv_path, video_name, frame_number, embedding, embedding_names=None, write_header=False):
-    """
-    Writes a row of pose embedding data (from FullBodyPoseEmbedder) to a CSV file.
-
-    Args:
-        csv_path (str): Output file path.
-        video_name (str): Name of the source video or stream.
-        frame_number (int): Frame index.
-        embedding (np.ndarray): Output from FullBodyPoseEmbedder. Shape (N, 3).
-        embedding_names (List[Tuple[str, str]]): Optional landmark names for header generation.
-        write_header (bool): Whether to write the header row.
-    """
-    output_dir = os.path.dirname(csv_path)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-
-    with open(csv_path, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-
-        if write_header and embedding_names:
-            header = generate_embedding_header(embedding_names)
-            writer.writerow(header)
-
-        flat = embedding.flatten().tolist()
-        writer.writerow([video_name, frame_number] + flat)
-
-
-def write_joint_angles_csv_row(csv_path, video_name, frame_number, angle_dict, write_header=False):
-    """
-    Saves joint angle dictionary to CSV.
-    Each joint angle is one column.
-    """
-    output_dir = os.path.dirname(csv_path)
-
-
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-
-    with open(csv_path, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-
-        if write_header:
-            headers = ["file_name", "frame_number"] + list(angle_dict.keys())
-            writer.writerow(headers)
-
-        row = [video_name, frame_number] + list(angle_dict.values())
-        writer.writerow(row)
-
+        # One file line: `sample_00001,x1,y1,x2,y2,....`.
+            with open(os.path.join(pose_samples_folder, file_name)) as csv_in:
+                csv_in_reader = csv.reader(csv_in, delimiter=file_separator)
+                for row in csv_in_reader:
+                    row.insert(1, class_name)
+                    csv_out_writer.writerow(row)
+def get_class_name(file_name: str, file_extension: str) -> str:
+    if file_name.endswith(f".{file_extension}"):
+        return file_name[:-(len(file_extension) + 1)]
+    else:
+        raise ValueError(f"File '{file_name}' does not end with .{file_extension}")

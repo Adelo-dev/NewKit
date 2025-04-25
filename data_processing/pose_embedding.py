@@ -1,134 +1,191 @@
 import numpy as np
 
+
 class FullBodyPoseEmbedder(object):
-    """Converts 3D pose landmarks into normalized 3D embedding vectors between body joints."""
+  """Converts 3D pose landmarks into 3D embedding."""
 
-    def __init__(self, torso_size_multiplier=2.5):
-        self._torso_size_multiplier = torso_size_multiplier
+  def __init__(self, torso_size_multiplier=2.5):
+    # Multiplier to apply to the torso to get minimal body size.
+    self._torso_size_multiplier = torso_size_multiplier
 
-        self._landmark_names = [
-            'nose',
-            'left_eye_inner', 'left_eye', 'left_eye_outer',
-            'right_eye_inner', 'right_eye', 'right_eye_outer',
-            'left_ear', 'right_ear',
-            'mouth_left', 'mouth_right',
-            'left_shoulder', 'right_shoulder',
-            'left_elbow', 'right_elbow',
-            'left_wrist', 'right_wrist',
-            'left_pinky_1', 'right_pinky_1',
-            'left_index_1', 'right_index_1',
-            'left_thumb_2', 'right_thumb_2',
-            'left_hip', 'right_hip',
-            'left_knee', 'right_knee',
-            'left_ankle', 'right_ankle',
-            'left_heel', 'right_heel',
-            'left_foot_index', 'right_foot_index',
-        ]
+    # Names of the landmarks as they appear in the prediction.
+    self._landmark_names = [
+        'nose',
+        'left_eye_inner', 'left_eye', 'left_eye_outer',
+        'right_eye_inner', 'right_eye', 'right_eye_outer',
+        'left_ear', 'right_ear',
+        'mouth_left', 'mouth_right',
+        'left_shoulder', 'right_shoulder',
+        'left_elbow', 'right_elbow',
+        'left_wrist', 'right_wrist',
+        'left_pinky_1', 'right_pinky_1',
+        'left_index_1', 'right_index_1',
+        'left_thumb_2', 'right_thumb_2',
+        'left_hip', 'right_hip',
+        'left_knee', 'right_knee',
+        'left_ankle', 'right_ankle',
+        'left_heel', 'right_heel',
+        'left_foot_index', 'right_foot_index',
+    ]
 
-        self._embedding_names = []  # Populated during embedding
+  def __call__(self, landmarks):
+    """Normalizes pose landmarks and converts to embedding
 
-    def __call__(self, landmarks):
-        assert landmarks.shape[0] == len(self._landmark_names), \
-            f'Expected {len(self._landmark_names)} landmarks, got {landmarks.shape[0]}'
-        
-        landmarks = np.copy(landmarks)
-        landmarks = self._normalize_pose_landmarks(landmarks)
-        embedding = self._get_pose_distance_embedding(landmarks)
+    Args:
+      landmarks - NumPy array with 3D landmarks of shape (N, 3).
 
-        return embedding
+    Result:
+      Numpy array with pose embedding of shape (M, 3) where `M` is the number of
+      pairwise distances defined in `_get_pose_distance_embedding`.
+    """
+    assert landmarks.shape[0] == len(self._landmark_names), 'Unexpected number of landmarks: {}'.format(landmarks.shape[0])
 
-    def get_embedding_names(self):
-        """Returns list of landmark name pairs for each embedding vector."""
-        return self._embedding_names
+    # Get pose landmarks.
+    landmarks = np.copy(landmarks)
 
-    def _normalize_pose_landmarks(self, landmarks):
-        pose_center = self._get_pose_center(landmarks)
-        landmarks -= pose_center
-        pose_size = self._get_pose_size(landmarks, self._torso_size_multiplier)
-        landmarks /= pose_size
-        landmarks *= 100
-        return landmarks
+    # Normalize landmarks.
+    landmarks = self._normalize_pose_landmarks(landmarks)
 
-    def _get_pose_center(self, landmarks):
-        left_hip = landmarks[self._landmark_names.index('left_hip')]
-        right_hip = landmarks[self._landmark_names.index('right_hip')]
-        return (left_hip + right_hip) * 0.5
+    # Get embedding.
+    embedding = self._get_pose_distance_embedding(landmarks)
 
-    def _get_pose_size(self, landmarks, torso_size_multiplier):
-        landmarks_2d = landmarks[:, :2]
-        left_hip = landmarks_2d[self._landmark_names.index('left_hip')]
-        right_hip = landmarks_2d[self._landmark_names.index('right_hip')]
-        hips = (left_hip + right_hip) * 0.5
-        left_shoulder = landmarks_2d[self._landmark_names.index('left_shoulder')]
-        right_shoulder = landmarks_2d[self._landmark_names.index('right_shoulder')]
-        shoulders = (left_shoulder + right_shoulder) * 0.5
-        torso_size = np.linalg.norm(shoulders - hips)
-        pose_center = self._get_pose_center(landmarks_2d)
-        max_dist = np.max(np.linalg.norm(landmarks_2d - pose_center, axis=1))
-        return max(torso_size * torso_size_multiplier, max_dist)
+    return embedding
 
-    def _get_pose_distance_embedding(self, landmarks):
-        embedding = []
-        self._embedding_names = []  # Reset each time
+  def _normalize_pose_landmarks(self, landmarks):
+    """Normalizes landmarks translation and scale."""
+    landmarks = np.copy(landmarks)
 
-        def add(name_from, name_to):
-            embedding.append(self._get_distance_by_names(landmarks, name_from, name_to))
-            self._embedding_names.append((name_from, name_to))
+    # Normalize translation.
+    pose_center = self._get_pose_center(landmarks)
+    landmarks -= pose_center
 
-        def add_avg_to_avg(label, name_from_1, name_from_2, name_to_1, name_to_2):
-            a = self._get_average_by_names(landmarks, name_from_1, name_from_2)
-            b = self._get_average_by_names(landmarks, name_to_1, name_to_2)
-            embedding.append(self._get_distance(a, b))
-            self._embedding_names.append((f"{name_from_1}_{name_from_2}_avg", f"{name_to_1}_{name_to_2}_avg"))
+    # Normalize scale.
+    pose_size = self._get_pose_size(landmarks, self._torso_size_multiplier)
+    landmarks /= pose_size
+    # Multiplication by 100 is not required, but makes it eaasier to debug.
+    landmarks *= 100
 
-        # Mid-hip to mid-shoulder
-        add_avg_to_avg("centerline", "left_hip", "right_hip", "left_shoulder", "right_shoulder")
+    return landmarks
 
-        # Arms (one joint)
-        add("left_shoulder", "left_elbow")
-        add("right_shoulder", "right_elbow")
-        add("left_elbow", "left_wrist")
-        add("right_elbow", "right_wrist")
+  def _get_pose_center(self, landmarks):
+    """Calculates pose center as point between hips."""
+    left_hip = landmarks[self._landmark_names.index('left_hip')]
+    right_hip = landmarks[self._landmark_names.index('right_hip')]
+    center = (left_hip + right_hip) * 0.5
+    return center
 
-        # Legs (one joint)
-        add("left_hip", "left_knee")
-        add("right_hip", "right_knee")
-        add("left_knee", "left_ankle")
-        add("right_knee", "right_ankle")
+  def _get_pose_size(self, landmarks, torso_size_multiplier):
+    """Calculates pose size.
 
-        # Arms (two joints)
-        add("left_shoulder", "left_wrist")
-        add("right_shoulder", "right_wrist")
+    It is the maximum of two values:
+      * Torso size multiplied by `torso_size_multiplier`
+      * Maximum distance from pose center to any pose landmark
+    """
+    # This approach uses only 2D landmarks to compute pose size.
+    landmarks = landmarks[:, :2]
 
-        # Legs (two joints)
-        add("left_hip", "left_ankle")
-        add("right_hip", "right_ankle")
+    # Hips center.
+    left_hip = landmarks[self._landmark_names.index('left_hip')]
+    right_hip = landmarks[self._landmark_names.index('right_hip')]
+    hips = (left_hip + right_hip) * 0.5
 
-        # Arms (four joints)
-        add("left_hip", "left_wrist")
-        add("right_hip", "right_wrist")
+    # Shoulders center.
+    left_shoulder = landmarks[self._landmark_names.index('left_shoulder')]
+    right_shoulder = landmarks[self._landmark_names.index('right_shoulder')]
+    shoulders = (left_shoulder + right_shoulder) * 0.5
 
-        # Arms (five joints)
-        add("left_shoulder", "left_ankle")
-        add("right_shoulder", "right_ankle")
+    # Torso size as the minimum body size.
+    torso_size = np.linalg.norm(shoulders - hips)
 
-        # Cross body
-        add("left_elbow", "right_elbow")
-        add("left_knee", "right_knee")
-        add("left_wrist", "right_wrist")
-        add("left_ankle", "right_ankle")
+    # Max dist to pose center.
+    pose_center = self._get_pose_center(landmarks)
+    max_dist = np.max(np.linalg.norm(landmarks - pose_center, axis=1))
 
-        return np.array(embedding)
+    return max(torso_size * torso_size_multiplier, max_dist)
 
-    def _get_average_by_names(self, landmarks, name1, name2):
-        return (landmarks[self._landmark_names.index(name1)] +
-                landmarks[self._landmark_names.index(name2)]) * 0.5
+  def _get_pose_distance_embedding(self, landmarks):
+    """Converts pose landmarks into 3D embedding.
 
-    def _get_distance_by_names(self, landmarks, name_from, name_to):
-        return self._get_distance(
-            landmarks[self._landmark_names.index(name_from)],
-            landmarks[self._landmark_names.index(name_to)]
-        )
+    We use several pairwise 3D distances to form pose embedding. All distances
+    include X and Y components with sign. We differnt types of pairs to cover
+    different pose classes. Feel free to remove some or add new.
 
-    def _get_distance(self, point_from, point_to):
-        return point_to - point_from
+    Args:
+      landmarks - NumPy array with 3D landmarks of shape (N, 3).
+
+    Result:
+      Numpy array with pose embedding of shape (M, 3) where `M` is the number of
+      pairwise distances.
+    """
+    embedding = np.array([
+        # One joint.
+
+        self._get_distance(
+            self._get_average_by_names(landmarks, 'left_hip', 'right_hip'),
+            self._get_average_by_names(landmarks, 'left_shoulder', 'right_shoulder')),
+
+        self._get_distance_by_names(landmarks, 'left_shoulder', 'left_elbow'),
+        self._get_distance_by_names(landmarks, 'right_shoulder', 'right_elbow'),
+
+        self._get_distance_by_names(landmarks, 'left_elbow', 'left_wrist'),
+        self._get_distance_by_names(landmarks, 'right_elbow', 'right_wrist'),
+
+        self._get_distance_by_names(landmarks, 'left_hip', 'left_knee'),
+        self._get_distance_by_names(landmarks, 'right_hip', 'right_knee'),
+
+        self._get_distance_by_names(landmarks, 'left_knee', 'left_ankle'),
+        self._get_distance_by_names(landmarks, 'right_knee', 'right_ankle'),
+
+        # Two joints.
+
+        self._get_distance_by_names(landmarks, 'left_shoulder', 'left_wrist'),
+        self._get_distance_by_names(landmarks, 'right_shoulder', 'right_wrist'),
+
+        self._get_distance_by_names(landmarks, 'left_hip', 'left_ankle'),
+        self._get_distance_by_names(landmarks, 'right_hip', 'right_ankle'),
+
+        # Four joints.
+
+        self._get_distance_by_names(landmarks, 'left_hip', 'left_wrist'),
+        self._get_distance_by_names(landmarks, 'right_hip', 'right_wrist'),
+
+        # Five joints.
+
+        self._get_distance_by_names(landmarks, 'left_shoulder', 'left_ankle'),
+        self._get_distance_by_names(landmarks, 'right_shoulder', 'right_ankle'),
+
+        self._get_distance_by_names(landmarks, 'left_hip', 'left_wrist'),
+        self._get_distance_by_names(landmarks, 'right_hip', 'right_wrist'),
+
+        # Cross body.
+
+        self._get_distance_by_names(landmarks, 'left_elbow', 'right_elbow'),
+        self._get_distance_by_names(landmarks, 'left_knee', 'right_knee'),
+
+        self._get_distance_by_names(landmarks, 'left_wrist', 'right_wrist'),
+        self._get_distance_by_names(landmarks, 'left_ankle', 'right_ankle'),
+
+        # Body bent direction.
+
+        # self._get_distance(
+        #     self._get_average_by_names(landmarks, 'left_wrist', 'left_ankle'),
+        #     landmarks[self._landmark_names.index('left_hip')]),
+        # self._get_distance(
+        #     self._get_average_by_names(landmarks, 'right_wrist', 'right_ankle'),
+        #     landmarks[self._landmark_names.index('right_hip')]),
+    ])
+
+    return embedding
+
+  def _get_average_by_names(self, landmarks, name_from, name_to):
+    lmk_from = landmarks[self._landmark_names.index(name_from)]
+    lmk_to = landmarks[self._landmark_names.index(name_to)]
+    return (lmk_from + lmk_to) * 0.5
+
+  def _get_distance_by_names(self, landmarks, name_from, name_to):
+    lmk_from = landmarks[self._landmark_names.index(name_from)]
+    lmk_to = landmarks[self._landmark_names.index(name_to)]
+    return self._get_distance(lmk_from, lmk_to)
+
+  def _get_distance(self, lmk_from, lmk_to):
+    return lmk_to - lmk_from

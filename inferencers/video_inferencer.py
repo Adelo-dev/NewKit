@@ -1,11 +1,13 @@
+import os
 from typing import Union
 
 import cv2 as cv
 import numpy as np
 
-from data_processing.exercise_classifier import classify_exercise_from_angles
+from data_processing.classification_smoothing import EMADictSmoothing
+from data_processing.pose_classifier import PoseClassifier
+from data_processing.repetition_counter import RepetitionCounter
 from inferencers.base_inferencer import BaseInferencer
-from utils import write_joint_angles_csv_row, write_pose_csv_row, write_pose_embedding_csv_row
 
 
 class VideoInferencer(BaseInferencer):
@@ -17,6 +19,8 @@ class VideoInferencer(BaseInferencer):
 
     def inference(self, stream_path: Union[str, int]=0, output_path: str=None,
                         show=True, should_infer: bool=True, save_csv: str=None):
+
+        video_name = os.path.splitext(os.path.basename(str(stream_path)))[0] if isinstance(stream_path, str) else "webcam"
         cap = cv.VideoCapture(stream_path)
         video_writer = None
         features = []
@@ -31,51 +35,56 @@ class VideoInferencer(BaseInferencer):
                 fourcc = cv.VideoWriter_fourcc(*"mp4v")
                 video_writer = cv.VideoWriter(output_path, fourcc, fps, (width, height))
 
-            video_name = str(stream_path) if isinstance(stream_path, str) else "webcam"
             frame_count = 0
-            header_written = False
+            images_in_folder = "fitness_poses_images_in"
+            images_out_folder = "fitness_poses_images_out"
+            self.bootstrap_from_folder(
+                images_in_folder= images_in_folder,
+                images_out_folder= images_out_folder,
+                csvs_out_folder= save_csv
+            )
+            self.print_images_in_statistics(images_in_folder)
+            self.print_images_out_statistics(images_in_folder)
+            self.align_images_and_csvs(
+                images_out_folder=images_out_folder,
+                csvs_out_folder=save_csv,
+                print_removed_items=False
+            )
+            self.print_images_out_statistics(images_in_folder)
+
+            pose_embedder = self.embedder
+            pose_classifier = PoseClassifier(
+                pose_samples_folder="fitness_poses_csvs_out",
+                pose_embedder=pose_embedder,
+                top_n_by_max_distance=30,
+                top_n_by_mean_distance=10
+                )
+            # outliers = pose_classifier.find_pose_sample_outliers()
+            # self.analyze_outliers(outliers)
+            # self.remove_outliers(outliers)
+            # self.align_images_and_csvs(
+            #     images_out_folder=images_out_folder,
+            #     csvs_out_folder=save_csv,
+            #     print_removed_items=False
+            # )
+            self.print_images_out_statistics(images_in_folder)
+            rep_counter = RepetitionCounter(class_name=video_name)
+            pose_classification_filter = EMADictSmoothing(window_size=10, alpha=0.2)
 
             while cap.isOpened():
                 if not ret:
                     self.logger.info("End of video stream.")
                     break
-
                 if should_infer:
                     frame, landmarks = super().inference(frame)
                     if landmarks is not None:
-                        lm_array = np.array([[lmk.x, lmk.y, lmk.z] for lmk in landmarks.landmark])
-                        embedding = self.embedder(lm_array)
-                        features.append(embedding.flatten())
-                        write_pose_embedding_csv_row(
-                            csv_path="output/pose_embeddings.csv",
-                            video_name=video_name,
-                            frame_number=frame_count,
-                            embedding=embedding,
-                            embedding_names=self.embedder.get_embedding_names(),
-                            write_header=not header_written
-                        )
-
-                        angle_dict = self.angle_calculator(lm_array)
-                        print(angle_dict)
-                        write_joint_angles_csv_row(
-                            csv_path="output/joint_angles.csv",
-                            video_name=video_name,
-                            frame_number=frame_count,
-                            angle_dict=angle_dict,
-                            write_header=not header_written
-                        )
-
-                        exercise = classify_exercise_from_angles(angle_dict)
-                        angle_dict["exercise"] = exercise  # include in CSV
-                        self.logger.info(f"Frame {frame_count}: Detected exercise = {exercise}")
-
-
-                    if save_csv:
-                        if not header_written:
-                            write_pose_csv_row(save_csv, video_name, frame_count, landmarks, write_header=True)
-                            header_written = True
-                        else:
-                            write_pose_csv_row(save_csv, video_name, frame_count, landmarks)
+                        lm_array = np.array([[lmk.x * width, lmk.y * height, lmk.z * width] for lmk in landmarks.landmark], dtype=np.float32)
+                        assert lm_array.shape == (33, 3), 'Unexpected landmarks shape: {}'.format(landmarks.shape)
+                        pose_classification = pose_classifier(lm_array)
+                        rep_counter(pose_classification)
+                        print(video_name)
+                        print(pose_classification)
+                        print(rep_counter.n_repeats)
 
                 if show:
                     self.draw_hud(frame)
