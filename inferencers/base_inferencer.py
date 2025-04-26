@@ -233,11 +233,6 @@ class BaseInferencer:
                 print(f"[WARNING] Could not load image: {image_path}")
                 continue  # Skip to next outlier
 
-            cv2.imshow('Outlier', cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-
     def remove_outliers(self, outliers):
         for outlier in outliers:
             path = os.path.join(outlier.sample.class_name, outlier.sample.name)
