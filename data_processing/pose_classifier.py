@@ -87,7 +87,8 @@ class PoseClassifier(object):
       # Find nearest poses for the target one.
       pose_landmarks = sample.landmarks.copy()
       pose_classification = self.__call__(pose_landmarks)
-      class_names = [class_name for class_name, count in pose_classification.items() if count == max(pose_classification.values())]
+      class_names = [class_name for class_name, \
+        count in pose_classification.items() if count == max(pose_classification.values())]
 
       # Sample is an outlier if nearest poses have different class or more than
       # one pose class is detected as nearest.
@@ -117,7 +118,11 @@ class PoseClassifier(object):
         }
     """
     # Check that provided and target poses have the same shape.
-    assert pose_landmarks.shape == (self._n_landmarks, self._n_dimensions), 'Unexpected shape: {}'.format(pose_landmarks.shape)
+    assert pose_landmarks.shape == (
+      self._n_landmarks,
+      self._n_dimensions), \
+      'Unexpected shape: {}'.format(pose_landmarks.shape
+    )
 
     # Get given pose embedding.
     pose_embedding = self._pose_embedder(pose_landmarks)
@@ -132,7 +137,8 @@ class PoseClassifier(object):
     max_dist_heap = []
     for sample_idx, sample in enumerate(self._pose_samples):
         if sample.embedding.shape != pose_embedding.shape:
-            print(f"[WARNING] Shape mismatch at sample {sample.name}: {sample.embedding.shape} vs {pose_embedding.shape}")
+            print(f"[WARNING] Shape mismatch at sample {sample.name}: \
+              {sample.embedding.shape} vs {pose_embedding.shape}")
             continue
 
         max_dist = min(

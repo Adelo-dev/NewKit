@@ -38,7 +38,8 @@ class FullBodyPoseEmbedder(object):
       Numpy array with pose embedding of shape (M, 3) where `M` is the number of
       pairwise distances defined in `_get_pose_distance_embedding`.
     """
-    assert landmarks.shape[0] == len(self._landmark_names), 'Unexpected number of landmarks: {}'.format(landmarks.shape[0])
+    assert landmarks.shape[0] == len(
+      self._landmark_names),'Unexpected number of landmarks: {}'.format(landmarks.shape[0])
 
     # Get pose landmarks.
     landmarks = np.copy(landmarks)
