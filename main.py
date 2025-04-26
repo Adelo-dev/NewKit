@@ -11,7 +11,7 @@ def main():
     #     save_csv="output/csv_image_result.csv"
     # )
     video_inference.inference(
-        stream_path="testing_video/pulluptest.mov",
+        stream_path="sample_data/sample_knee_pushups.mp4",
         output_path="fitness_video_results",
         should_infer=True,
         save_csv= "fitness_poses_csvs_out"

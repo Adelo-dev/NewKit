@@ -28,7 +28,6 @@ class VideoInferencer(BaseInferencer):
             if output_path:
                 height, width, _ = frame.shape
                 fps = cap.get(cv.CAP_PROP_FPS)
-
                 fourcc = cv.VideoWriter_fourcc(*"mp4v")
                 video_writer = cv.VideoWriter(output_path, fourcc, fps, (width, height))
 
