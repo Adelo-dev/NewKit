@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "gdown>=5.2.0",
     "ipykernel>=6.29.5",
     "mediapipe>=0.10.21",
     "opencv-python>=4.11.0.86",
@@ -22,7 +23,7 @@ dev = [
 line-length = 120
 
 [tool.ruff.lint]
-select = ['E', 'F', 'W', 'A', 'PLC', 'PLE', 'PLW', 'I']
+select = ['E', 'F', 'W', 'A', 'PLC', 'PLE', 'PLW', 'I', 'B']
 
 [tool.ruff.lint.per-file-ignores]
-"Archive/*" = ['E', 'F', 'W', 'A', 'PLC', 'PLE', 'PLW', 'I']
+"archive/*" = ['ALL']

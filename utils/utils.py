@@ -1,6 +1,7 @@
 import csv
 import os
 
+import cv2
 import pandas as pd
 
 
@@ -41,8 +42,15 @@ def dump_for_the_app():
                 for row in csv_in_reader:
                     row.insert(1, class_name)
                     csv_out_writer.writerow(row)
+
 def get_class_name(file_name: str, file_extension: str) -> str:
     if file_name.endswith(f".{file_extension}"):
         return file_name[:-(len(file_extension) + 1)]
     else:
         raise ValueError(f"File '{file_name}' does not end with .{file_extension}")
+
+def bgr_to_rgb(image):
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+def rgb_to_bgr(image):
+    return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)

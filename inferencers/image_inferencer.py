@@ -13,12 +13,11 @@ class ImageInference(BaseInferencer):
     def inference(self, image_path: str,
                         output_path: str=None,
                         show=True,
-                        should_infer: bool=True,
-                        save_csv: str=None):
+                        should_infer: bool=True):
         image: numpy.ndarray = cv.imread(image_path)
         pose_landmarks = None
         if image is None:
-            self.logger.error(f"Error: Unable to load image at {image_path}.")
+            raise FileNotFoundError(f"Image not found at {image_path}.")
             return
 
         if should_infer:

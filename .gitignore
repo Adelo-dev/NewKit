@@ -13,4 +13,4 @@ wheels/
 .venv
 
 # Assets Folders
-input
+data/input
