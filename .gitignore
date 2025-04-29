@@ -11,3 +11,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+data/**
+!data/datasets
+!data/input
+!data/output
+!data/sample_data
+!data/sample_data/**
