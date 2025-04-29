@@ -1,3 +1,5 @@
+import os
+
 import cv2 as cv
 import numpy
 
@@ -32,6 +34,7 @@ class ImageInference(BaseInferencer):
                 )
 
         if output_path:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
             cv.imwrite(output_path, image)
             self.logger.info(f"Output image saved to {output_path}.")
 

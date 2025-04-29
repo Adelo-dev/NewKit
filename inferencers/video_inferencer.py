@@ -1,3 +1,4 @@
+import os
 import uuid
 from typing import Union
 
@@ -39,6 +40,7 @@ class VideoInferencer(BaseInferencer):
             ret, frame = cap.read()
 
             if output_path:
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 if not output_path.endswith(".mp4"):
                     output_path = f"{output_path.rstrip('/')}/{uuid.uuid4()}.mp4"
                 height, width, _ = frame.shape
