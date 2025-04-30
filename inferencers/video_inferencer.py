@@ -27,23 +27,19 @@ class VideoInferencer(BaseInferencer):
         cap = cv.VideoCapture(stream_path)
         if classifier_inputs:
             self.logger.info("Pose classification is enabled.")
-            pose_classifier = PoseClassifier(
-                pose_samples_folder=classifier_inputs,
-                top_n_by_max_distance=30,
-                top_n_by_mean_distance=10
-                )
+            pose_classifier = PoseClassifier(pose_samples_file=classifier_inputs)
             rep_counter = RepetitionCounter("pull-up_down")
         video_writer = None
         features = []
 
         if cap.isOpened():
             ret, frame = cap.read()
+            height, width, _ = frame.shape
 
             if output_path:
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 if not output_path.endswith(".mp4"):
                     output_path = f"{output_path.rstrip('/')}/{uuid.uuid4()}.mp4"
-                height, width, _ = frame.shape
                 fps = cap.get(cv.CAP_PROP_FPS)
                 fourcc = cv.VideoWriter_fourcc(*"mp4v")
                 video_writer = cv.VideoWriter(output_path, fourcc, fps, (width, height))
@@ -66,8 +62,9 @@ class VideoInferencer(BaseInferencer):
                         assert lm_array.shape == (33, 3), 'Unexpected landmarks shape: {}'.format(landmarks.shape)
                         pose_classification = pose_classifier(lm_array)
                         rep_counter(pose_classification)
-                        self.logger.info(pose_classification)
-                        self.logger.info(rep_counter.n_repeats)
+                        self.logger.info(
+                            f"Pose classification: {pose_classification}, Repetition count: {rep_counter.n_repeats}"
+                        )
 
                 if should_show:
                     self.draw_hud(frame)

@@ -1,25 +1,23 @@
-import csv
+import json
 import logging
 import os
 import uuid
+from typing import List
 
-import cv2
 import numpy as np
+import pandas as pd
 
 from data_processing.classification_smoothing import EMADictSmoothing
 from data_processing.pose_embedding import FullBodyPoseEmbedder
 from data_processing.pose_sample import PoseSample
-from data_processing.pose_sample_outlier import PoseSampleOutlier
-from data_processing.utils import align_images_and_csvs, bootstrap_from_folder
+from data_processing.utils import generate_pose_samples_from_images
 
 
 class PoseClassifier(object):
   """Classifies pose landmarks."""
 
   def __init__(self,
-               pose_samples_folder,
-               file_extension='csv',
-               file_separator=',',
+               pose_samples_file=None,
                n_landmarks=33,
                n_dimensions=3,
                top_n_by_max_distance=30,
@@ -33,62 +31,25 @@ class PoseClassifier(object):
     self._top_n_by_max_distance = top_n_by_max_distance
     self._top_n_by_mean_distance = top_n_by_mean_distance
     self._axes_weights = axes_weights
+    self._pose_samples: List[PoseSample] = self.import_pose_samples_from_csv(pose_samples_file)
 
-    self._pose_samples = self._load_pose_samples(pose_samples_folder,
-                                                 file_extension,
-                                                 file_separator,
-                                                 n_landmarks,
-                                                 n_dimensions,
-                                                 self._pose_embedder)
+  def import_pose_samples_from_csv(self, pose_samples_file):
+      if not pose_samples_file or not os.path.exists(pose_samples_file):
+        self._logger.warning(f"Pose samples file '{pose_samples_file}' does not exist.")
+        return []
+      pose_samples_df = pd.read_csv(pose_samples_file)
+      pose_samples_df['landmarks'] = pose_samples_df['landmarks'].apply(lambda x: np.array(json.loads(x),
+                                                                                          np.float32).reshape([self._n_landmarks,
+                                                                                                               self._n_dimensions]))
+      pose_samples_df['embeddings'] = pose_samples_df['landmarks'].apply(self._pose_embedder)
+      return [PoseSample.from_row(row) for _, row in pose_samples_df.iterrows()]
 
-  def _load_pose_samples(self,
-                         pose_samples_folder,
-                         file_extension,
-                         file_separator,
-                         n_landmarks,
-                         n_dimensions,
-                         pose_embedder):
-    """Loads pose samples from a given folder.
-
-    Required folder structure:
-      neutral_standing.csv
-      pushups_down.csv
-      pushups_up.csv
-      squats_down.csv
-      ...
-
-    Required CSV structure:
-      sample_00001,x1,y1,z1,x2,y2,z2,....
-      sample_00002,x1,y1,z1,x2,y2,z2,....
-      ...
-    """
-    # Check that given folder exists.
-    if not os.path.exists(pose_samples_folder):
-      self._logger.warning('Pose samples folder does not exist: {}'.format(pose_samples_folder))
-      return []
-    # Each file in the folder represents one pose class.
-    file_names = [name for name in os.listdir(pose_samples_folder) if name.endswith(file_extension)]
-
-    pose_samples = []
-    for file_name in file_names:
-      # Use file name as pose class name.
-      class_name = file_name[:-(len(file_extension) + 1)]
-
-      # Parse CSV.
-      with open(os.path.join(pose_samples_folder, file_name)) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=file_separator)
-        for row in csv_reader:
-            if not row:
-                continue
-            assert len(row) == n_landmarks * n_dimensions + 1, f'Wrong number of values: {len(row)}'
-            landmarks = np.array(row[1:], np.float32).reshape([n_landmarks, n_dimensions])
-            pose_samples.append(PoseSample(
-                name=row[0],
-                landmarks=landmarks,
-                class_name=class_name,
-                embedding=pose_embedder(landmarks),
-            ))
-    return pose_samples
+  def export_pose_samples_to_csv(self, output_folder):
+    """Exports pose samples to the given folder."""
+    os.makedirs(output_folder, exist_ok=True)
+    pose_samples_csv_path = os.path.join(output_folder, f'{uuid.uuid4()}.csv')
+    pd.DataFrame([pose.to_dict() for pose in self._pose_samples]).to_csv(pose_samples_csv_path, index=False)
+    return pose_samples_csv_path
 
   def __call__(self, pose_landmarks):
     """Classifies given pose.
@@ -120,7 +81,6 @@ class PoseClassifier(object):
     # Get given pose embedding.
     pose_embedding = self._pose_embedder(pose_landmarks)
     flipped_pose_embedding = self._pose_embedder(pose_landmarks * np.array([-1, 1, 1]))
-    flipped_pose_embedding = self._pose_embedder(pose_landmarks * np.array([-1, 1, 1]))
 
     # Filter by max distance.
     #
@@ -146,7 +106,7 @@ class PoseClassifier(object):
     # After removing outliers we can find the nearest pose by mean distance.
     mean_dist_heap = []
     for _, sample_idx in max_dist_heap:
-      sample = self._pose_samples[sample_idx]
+      sample: PoseSample = self._pose_samples[sample_idx]
       mean_dist = min(
           np.mean(np.abs(sample.embedding - pose_embedding) * self._axes_weights),
           np.mean(np.abs(sample.embedding - flipped_pose_embedding) * self._axes_weights),
@@ -158,62 +118,12 @@ class PoseClassifier(object):
 
     # Collect results into map: (class_name -> n_samples)
     class_names = [self._pose_samples[sample_idx].class_name for _, sample_idx in mean_dist_heap]
-    result = {class_name: class_names.count(class_name) for class_name in set(class_names)}
-    return result
+    return {class_name: class_names.count(class_name) for class_name in set(class_names)}
 
-  def train_classifier(self, pose_samples_folder):
-    """Trains pose classifier on given samples.
-
-    Args:
-      pose_samples_folder: Path to folder with pose samples.
-    """
-    # Load pose samples from the given folder.
-    self._pose_samples = self._load_pose_samples(pose_samples_folder,
-                                                 file_extension='csv',
-                                                 file_separator=',',
-                                                 n_landmarks=self._n_landmarks,
-                                                 n_dimensions=self._n_dimensions,
-                                                 pose_embedder=self._pose_embedder)
-    """Trains pose classifier on given samples."""
-
-  def generate_pose_samples(self, images_input_folder, pose_samples_folder):
-    """Generates pose samples from given folder."""
-    pose_samples_folder = os.path.join(pose_samples_folder, uuid.uuid4().hex)
-    images_output_folder = images_input_folder + '_output'
-
-    bootstrap_from_folder(
-        images_input_folder= images_input_folder,
-        images_output_folder= images_output_folder,
-        csvs_out_folder=pose_samples_folder
-    )
-
-    align_images_and_csvs(
-        images_output_folder=images_output_folder,
-        csvs_out_folder=pose_samples_folder,
-        print_removed_items=False
-    )
-
-    self._pose_samples = self._load_pose_samples(pose_samples_folder,
-                                                 file_extension='csv',
-                                                 file_separator=',',
-                                                 n_landmarks=self._n_landmarks,
-                                                 n_dimensions=self._n_dimensions,
-                                                 pose_embedder=self._pose_embedder)
-
-    outliers = self.find_pose_sample_outliers()
-    self.remove_outliers(outlier_folder_path=images_output_folder,
-                         outliers=outliers)
-
-    self.print_images_statistics(images_input_folder)
-    self.print_images_statistics(images_output_folder)
-    self._logger.info(f'Pose samples generated in {pose_samples_folder}')
-
-  def find_pose_sample_outliers(self):
-    """Classifies each sample against the entire database."""
-    # Find outliers in target poses
-    outliers = []
+  def analyze_and_remove_outliers(self):
+    """Analyzes and removes outliers from the pose samples."""
+    cleaned_pose_samples = []
     for sample in self._pose_samples:
-      # Find nearest poses for the target one.
       pose_landmarks = sample.landmarks.copy()
       pose_classification = self.__call__(pose_landmarks)
       class_names = [class_name for class_name, \
@@ -221,32 +131,22 @@ class PoseClassifier(object):
 
       # Sample is an outlier if nearest poses have different class or more than
       # one pose class is detected as nearest.
-      if sample.class_name not in class_names or len(class_names) != 1:
-        outliers.append(PoseSampleOutlier(sample, class_names, pose_classification))
+      if sample.class_name in class_names or len(class_names) == 1:
+        cleaned_pose_samples.append(sample)
+    return cleaned_pose_samples
 
-    return outliers
-
-  def remove_outliers(self, outlier_folder_path, outliers):
-      for outlier in outliers:
-          image_path = os.path.join(outlier_folder_path, outlier.sample.class_name, outlier.sample.name)
-          self._logger.info(f"""[OUTLIER] sample={image_path}
-          expected={outlier.sample.class_name}
-          predicted={outlier.detected_class}
-          all predictions={outlier.all_classes}""")
-
-          image = cv2.imread(image_path)
-          if image is None:
-              self._logger.warning(f"Could not load image: {image_path}")
-              continue
-
-          path = os.path.join(outlier.sample.class_name, outlier.sample.name)
-          if os.path.exists(path):
-              os.remove(path)
+  def generate_pose_samples(self, images_input_folder, output_folder):
+    """Generates pose samples from images in the given folder."""
+    self.print_images_statistics(images_input_folder)
+    self._pose_samples = generate_pose_samples_from_images(images_input_folder=images_input_folder,
+                                      landmarks_shape=(self._n_landmarks, self._n_dimensions))
+    self._pose_samples = self.analyze_and_remove_outliers()
+    return self.export_pose_samples_to_csv(output_folder)
 
   def print_images_statistics(self, images_folder: str):
-      pose_class_names = sorted([n for n in os.listdir(images_folder) if not n.startswith('.')])
-      self._logger.info('Pose classes: {}'.format(pose_class_names))
-      for pose_class_name in pose_class_names:
-          n_images = len([n for n in os.listdir(os.path.join(images_folder, pose_class_name))
-              if not n.startswith('.')])
-          self._logger.info('  {}: {}'.format(pose_class_name, n_images))
+    pose_class_names = sorted([n for n in os.listdir(images_folder) if not n.startswith('.')])
+    self._logger.info('Pose classes: {}'.format(pose_class_names))
+    for pose_class_name in pose_class_names:
+        n_images = len([n for n in os.listdir(os.path.join(images_folder, pose_class_name))
+            if not n.startswith('.')])
+        self._logger.info('  {}: {}'.format(pose_class_name, n_images))

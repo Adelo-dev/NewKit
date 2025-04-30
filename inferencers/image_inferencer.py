@@ -1,7 +1,7 @@
 import os
 
 import cv2 as cv
-import numpy
+import numpy as np
 
 from inferencers.base_inferencer import BaseInferencer
 
@@ -16,7 +16,8 @@ class ImageInference(BaseInferencer):
                         output_path: str=None,
                         show=True,
                         should_infer: bool=True):
-        image: numpy.ndarray = cv.imread(image_path)
+        image: np.ndarray = cv.imread(image_path)
+        height, width, _ = image.shape
         pose_landmarks = None
         if image is None:
             raise FileNotFoundError(f"Image not found at {image_path}.")
@@ -43,4 +44,5 @@ class ImageInference(BaseInferencer):
             cv.imshow("frame", image)
             cv.waitKey(0)
 
-        return pose_landmarks
+        return np.array([[lmk.x * width, lmk.y * height, lmk.z * width] for lmk in pose_landmarks.landmark],
+                        dtype=np.float32 )

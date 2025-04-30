@@ -8,6 +8,8 @@ import numpy as np
 import tqdm
 from PIL import Image, ImageDraw
 
+from data_processing.pose_embedding import FullBodyPoseEmbedder
+from data_processing.pose_sample import PoseSample
 from utils.utils import rgb_to_bgr
 
 
@@ -33,7 +35,42 @@ def draw_xz_projection(output_frame, pose_landmarks, r=0.5, color='red'):
 
     return np.asarray(img)
 
-def bootstrap_from_folder(images_input_folder, images_output_folder, csvs_out_folder, per_pose_class_limit=None):
+def generate_pose_samples_from_images(images_input_folder, landmarks_shape=(33, 3)):
+    pose_classes = sorted([n for n in os.listdir(images_input_folder) if not n.startswith('.')])
+    pose_samples = []
+    pose_embedder = FullBodyPoseEmbedder()
+
+    for class_name in pose_classes:
+        class_in_path = os.path.join(images_input_folder, class_name)
+        image_names = sorted([n for n in os.listdir(class_in_path) if not n.startswith('.')])
+        for image_name in tqdm.tqdm(image_names, desc=f'Processing {class_name}'):
+            input_path = os.path.join(class_in_path, image_name)
+            image = cv2.imread(input_path)
+            if image is None:
+                continue
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            frame_height, frame_width = image.shape[:2]
+
+            with mp_solutions.pose.Pose(static_image_mode=True, model_complexity=1) as pose_tracker:
+                result = pose_tracker.process(image=image_rgb)
+                landmarks = result.pose_landmarks
+
+            if landmarks is not None:
+                flat_landmarks = flatten_landmark_features(
+                    result.pose_landmarks,
+                    frame_width,
+                    frame_height)
+                if len(flat_landmarks) == 99:
+                    reshaped_landmarks = np.array(flat_landmarks, np.float32).reshape(landmarks_shape)
+                    pose_samples.append(PoseSample(
+                        name=image_name,
+                        class_name=class_name,
+                        landmarks=reshaped_landmarks,
+                        embedding=pose_embedder(reshaped_landmarks),
+                    ))
+    return pose_samples
+
+def bootstrap_from_folder(images_input_folder, images_output_folder, csvs_out_folder):
     pose_class_names = sorted([n for n in os.listdir(images_input_folder) if not n.startswith('.')])
     os.makedirs(csvs_out_folder, exist_ok=True)
 
@@ -45,8 +82,6 @@ def bootstrap_from_folder(images_input_folder, images_output_folder, csvs_out_fo
         os.makedirs(class_out_path, exist_ok=True)
 
         image_names = sorted([n for n in os.listdir(class_in_path) if not n.startswith('.')])
-        if per_pose_class_limit:
-            image_names = image_names[:per_pose_class_limit]
 
         with open(class_csv_path, 'w') as csv_file:
             writer = csv.writer(csv_file)

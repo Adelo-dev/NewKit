@@ -52,13 +52,12 @@ def test_video_inferencer_specific_method(video_inferencer) -> None:
     assert result is not None
     os.remove(path=output_path)
 
-def test_pose_classfier() -> None:
-    pose_classifier = PoseClassifier(
-        pose_samples_folder="fitness_poses_csvs_out",
-        top_n_by_max_distance=30,
-        top_n_by_mean_distance=10
-    )
-    pose_classifier(np.ones((33,3)))
-    result = (pose_classifier)
-    assert isinstance(result, PoseClassifier)
 
+def test_pose_classifier() -> None:
+    pose_classifier = PoseClassifier()
+    pose_samples_file = pose_classifier.generate_pose_samples(images_input_folder="data/sample_data/classify_sample",
+                                          output_folder="data/datasets")
+    pose_classifier.import_pose_samples_from_csv(pose_samples_file=pose_samples_file)
+    assert os.path.exists(path=pose_samples_file)
+    assert os.path.getsize(filename=pose_samples_file) > 0
+    os.remove(path=pose_samples_file)
