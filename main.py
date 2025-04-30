@@ -1,5 +1,6 @@
 from data_processing.pose_classifier import PoseClassifier
-from inferencers.image_inferencer import ImageInference
+
+# from inferencers.image_inferencer import ImageInference
 from inferencers.video_inferencer import VideoInferencer
 
 
