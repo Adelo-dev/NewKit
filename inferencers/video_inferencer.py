@@ -1,6 +1,6 @@
 import os
 import uuid
-from typing import Union
+from typing import Tuple, Union
 
 import cv2 as cv
 import numpy as np
@@ -22,15 +22,17 @@ class VideoInferencer(BaseInferencer):
                   output_path: str=None,
                   show=True,
                   should_infer: bool=True,
-                  classifier_inputs: str=None):
+                  classifier_inputs: str=None) -> Tuple[list, list]:
         should_show = show
         cap = cv.VideoCapture(stream_path)
         if classifier_inputs:
             self.logger.info("Pose classification is enabled.")
             pose_classifier = PoseClassifier(pose_samples_file=classifier_inputs)
             rep_counter = RepetitionCounter("pull-up_down")
+
         video_writer = None
         features = []
+        classifier_prediction = []
 
         if cap.isOpened():
             ret, frame = cap.read()
@@ -62,9 +64,12 @@ class VideoInferencer(BaseInferencer):
                         assert lm_array.shape == (33, 3), 'Unexpected landmarks shape: {}'.format(landmarks.shape)
                         pose_classification = pose_classifier(lm_array)
                         rep_counter(pose_classification)
-                        self.logger.info(
+                        classifier_prediction.append(max(pose_classification))
+                        self.logger.debug(
                             f"Pose classification: {pose_classification}, Repetition count: {rep_counter.n_repeats}"
                         )
+                        self.put_text_safe(frame, f"Pose: {max(pose_classification)}", (10, 60))
+                        self.put_text_safe(frame, f"Reps: {rep_counter.n_repeats}", (10, 90))
 
                 if should_show:
                     self.draw_hud(frame)
@@ -85,7 +90,7 @@ class VideoInferencer(BaseInferencer):
 
             cap.release()
             cv.destroyAllWindows()
-            return np.array(features)
+            return np.array(features), classifier_prediction
         else:
             self.logger.error("Error: Unable to open video stream.")
             return

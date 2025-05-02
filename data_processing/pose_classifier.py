@@ -6,6 +6,7 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from data_processing.classification_smoothing import EMADictSmoothing
 from data_processing.pose_embedding import FullBodyPoseEmbedder
@@ -47,7 +48,7 @@ class PoseClassifier(object):
   def export_pose_samples_to_csv(self, output_folder):
     """Exports pose samples to the given folder."""
     os.makedirs(output_folder, exist_ok=True)
-    pose_samples_csv_path = os.path.join(output_folder, f'{uuid.uuid4()}.csv')
+    pose_samples_csv_path = os.path.join(output_folder, f'{uuid.uuid4().hex}.csv')
     pd.DataFrame([pose.to_dict() for pose in self._pose_samples]).to_csv(pose_samples_csv_path, index=False)
     return pose_samples_csv_path
 
@@ -123,7 +124,7 @@ class PoseClassifier(object):
   def analyze_and_remove_outliers(self):
     """Analyzes and removes outliers from the pose samples."""
     cleaned_pose_samples = []
-    for sample in self._pose_samples:
+    for sample in tqdm(self._pose_samples, desc='Analyzing pose samples'):
       pose_landmarks = sample.landmarks.copy()
       pose_classification = self.__call__(pose_landmarks)
       class_names = [class_name for class_name, \

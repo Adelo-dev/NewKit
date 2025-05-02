@@ -2,7 +2,9 @@ import csv
 import os
 
 import cv2
+import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 
 
 def write_pose_embedding_csv_row(csv_path: str, embedding):
@@ -54,3 +56,40 @@ def bgr_to_rgb(image):
 
 def rgb_to_bgr(image):
     return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+def video_to_frames(video_path: str, output_folder: str, frame_rate: int = 30):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    video_capture = cv2.VideoCapture(video_path)
+    frame_count = 0
+    while True:
+        ret, frame = video_capture.read()
+        if not ret:
+            break
+
+        # Save the frame as an image file
+        frame_filename = os.path.join(output_folder, f"frame_{frame_count:04d}.jpg")
+        cv2.imwrite(frame_filename, frame)
+        frame_count += 1
+
+    video_capture.release()
+
+def create_confusion_matrix(data, output_path=None):
+    y_true, y_pred = zip(*data, strict=False)
+
+    # Get all unique labels to ensure consistent ordering
+    labels = sorted(set(y_true + y_pred))
+
+    # Create confusion matrix
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+
+    # Plot
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+    disp.plot(xticks_rotation=45, cmap='Blues')
+    plt.title("Confusion Matrix")
+    plt.tight_layout()
+    plt.show()
+    if output_path:
+        plt.savefig(output_path, bbox_inches='tight')
+
