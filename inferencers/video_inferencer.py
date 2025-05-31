@@ -26,10 +26,10 @@ class VideoInferencer(BaseInferencer):
                   output_path: str=None,
                   show=True,
                   should_infer: bool=True,
-                  add_new_data=True,
-                  classifier_errors: str=None,
-                  exercise_name: str=None,
-                  classifier_rep_count: str=None) -> Tuple[list, list]:
+                  add_new_data=False,
+                  classifier_errors= "",
+                  exercise_name="" ,
+                  classifier_rep_count="") -> Tuple[list, list]:
         should_show = show
         cap = cv.VideoCapture(stream_path)
         if classifier_rep_count or classifier_errors:
