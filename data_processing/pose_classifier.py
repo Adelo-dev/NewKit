@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import shutil
+import tempfile
 import uuid
+from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -151,3 +154,35 @@ class PoseClassifier(object):
         n_images = len([n for n in os.listdir(os.path.join(images_folder, pose_class_name))
             if not n.startswith('.')])
         self._logger.info('  {}: {}'.format(pose_class_name, n_images))
+
+def collect_and_classify_pose_images(base_dir, exercise_name):
+    temp_dir = tempfile.mkdtemp()
+    output_dir = Path(f"data/exercises/{exercise_name}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    folders = {
+        "bad_form": Path(base_dir) / exercise_name / "bad_form",
+        f"{exercise_name}_up": Path(base_dir) / exercise_name / "good_form" / f"{exercise_name}_up",
+        f"{exercise_name}_down": Path(base_dir) / exercise_name / "good_form" / f"{exercise_name}_down",
+    }
+
+    for class_name, src in folders.items():
+        if src.is_dir():
+            dst = Path(temp_dir) / class_name
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in src.glob("*.[jpJP][pnPN]*[gG]"):  # matches .jpg/.png case-insensitive
+                shutil.copy(f, dst / f.name)
+
+    classifier = PoseClassifier()
+    csv_path = Path(classifier.generate_pose_samples(temp_dir, str(output_dir)))
+    final_path = output_dir / f"{exercise_name}_errors.csv"
+
+    if final_path.exists():
+        df = pd.concat([pd.read_csv(final_path), pd.read_csv(csv_path)], ignore_index=True)
+        df.to_csv(final_path, index=False)
+        csv_path.unlink()
+    else:
+        csv_path.rename(final_path)
+
+    print(f"✅ CSV saved to: {final_path}")
+    return str(final_path)

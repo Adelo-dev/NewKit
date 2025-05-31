@@ -11,13 +11,15 @@ def main():
 
     video_inference = VideoInferencer(debug_mode=True)
     video_inference.inference(
-        stream_path="testing_video/squat-right.mov",
+        stream_path="trainee_videos/legraises.mp4",
+        trainer_videos="trainer_videos",
         output_path="data/output",
         show=True,
         should_infer=True,
-        classifier_errors="data/exercises/squats/squats_errors.csv",
-        classifier_rep_count="data/exercises/squats/squats_rep_count.csv"
-
+        classifier_errors="data/exercises/legraises/legraises_errors.csv",
+        classifier_rep_count="data/exercises/legraises/legraises_rep_count.csv",
+        add_new_data=True,
+        exercise_name="legraises"
     )
 
 if __name__ == "__main__":

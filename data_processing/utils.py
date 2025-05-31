@@ -1,6 +1,7 @@
 
 import csv
 import os
+import re
 
 import cv2
 import mediapipe.python.solutions as mp_solutions
@@ -42,12 +43,16 @@ def generate_pose_samples_from_images(images_input_folder, landmarks_shape=(33, 
 
     for class_name in pose_classes:
         class_in_path = os.path.join(images_input_folder, class_name)
+        if not os.path.isdir(class_in_path):
+            continue
+
         image_names = sorted([n for n in os.listdir(class_in_path) if not n.startswith('.')])
         for image_name in tqdm.tqdm(image_names, desc=f'Processing {class_name}'):
             input_path = os.path.join(class_in_path, image_name)
             image = cv2.imread(input_path)
             if image is None:
                 continue
+
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             frame_height, frame_width = image.shape[:2]
 
@@ -56,15 +61,21 @@ def generate_pose_samples_from_images(images_input_folder, landmarks_shape=(33, 
                 landmarks = result.pose_landmarks
 
             if landmarks is not None:
-                flat_landmarks = flatten_landmark_features(
-                    result.pose_landmarks,
-                    frame_width,
-                    frame_height)
+                flat_landmarks = flatten_landmark_features(landmarks, frame_width, frame_height)
                 if len(flat_landmarks) == 99:
                     reshaped_landmarks = np.array(flat_landmarks, np.float32).reshape(landmarks_shape)
+
+                    if class_name == "bad_form":
+                        base_name = os.path.splitext(image_name)[0]
+
+                        match = re.match(r"(.+?)(?:_\d+.*)?$", base_name)
+                        sample_class_name = match.group(1) if match else base_name
+                    else:
+                        sample_class_name = class_name
+
                     pose_samples.append(PoseSample(
                         name=image_name,
-                        class_name=class_name,
+                        class_name=sample_class_name,
                         landmarks=reshaped_landmarks,
                         embedding=pose_embedder(reshaped_landmarks),
                     ))

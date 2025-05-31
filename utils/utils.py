@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 
 import cv2
 import matplotlib.pyplot as plt
@@ -93,3 +94,44 @@ def create_confusion_matrix(data, output_path=None):
     if output_path:
         plt.savefig(output_path, bbox_inches='tight')
 
+def extract_frames_from_videos(videos_root_dir, output_base_dir, exercise_name="jumpingjacks"):
+    exercise_dir = os.path.join(output_base_dir, exercise_name)
+    os.makedirs(exercise_dir, exist_ok=True)
+
+    subfolder = "bad_form"
+    subfolder_path = os.path.join(videos_root_dir, subfolder)
+    if not os.path.isdir(subfolder_path):
+        print(f"❌ '{subfolder}' folder not found in {videos_root_dir}")
+        return
+
+    output_subfolder = os.path.join(exercise_dir, subfolder)
+    os.makedirs(output_subfolder, exist_ok=True)
+
+    for filename in os.listdir(subfolder_path):
+        if filename.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
+            video_path = os.path.join(subfolder_path, filename)
+            print(f"Processing {filename} in {subfolder}...")
+
+            base_name = os.path.splitext(filename)[0]
+            # Remove trailing _number using regex, keeping the main class name
+            class_name = re.sub(r'_\d+$', '', base_name)
+
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                print(f"Failed to open {video_path}")
+                continue
+
+            frame_index = 1
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                frame_filename = os.path.join(
+                    output_subfolder,
+                    f"{class_name}_{frame_index:04d}.jpg"
+                )
+                cv2.imwrite(frame_filename, frame)
+                frame_index += 1
+
+            cap.release()
