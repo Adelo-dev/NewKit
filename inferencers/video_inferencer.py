@@ -25,18 +25,13 @@ class VideoInferencer(BaseInferencer):
                   trainer_videos: Union[str, int]=0,
                   output_path: str=None,
                   show=True,
-                  should_infer: bool=True,
-                  add_new_data=False,
+                  should_infer: bool= True,
+                  add_new_data= False,
                   classifier_errors= "",
-                  exercise_name="" ,
-                  classifier_rep_count="") -> Tuple[list, list]:
+                  exercise_name= "" ,
+                  classifier_rep_count= "") -> Tuple[list, list]:
         should_show = show
         cap = cv.VideoCapture(stream_path)
-        if classifier_rep_count or classifier_errors:
-            self.logger.info("Pose classification is enabled.")
-            pose_classifier_reps_count = PoseClassifier(pose_samples_file=classifier_rep_count)
-            pose_classifier_errors = PoseClassifier(pose_samples_file=classifier_errors)
-            rep_counter = RepetitionCounter(exercise_name +"_down")
 
         video_writer = None
         features = []
@@ -51,6 +46,11 @@ class VideoInferencer(BaseInferencer):
                 top_k= 40
             )
             collect_and_classify_pose_images(base_dir="frames", exercise_name=exercise_name)
+        if classifier_rep_count or classifier_errors:
+            self.logger.info("Pose classification is enabled.")
+            pose_classifier_reps_count = PoseClassifier(pose_samples_file=classifier_rep_count)
+            pose_classifier_errors = PoseClassifier(pose_samples_file=classifier_errors)
+            rep_counter = RepetitionCounter(exercise_name +"_down")
 
         if cap.isOpened():
             ret, frame = cap.read()
@@ -80,8 +80,11 @@ class VideoInferencer(BaseInferencer):
                                 dtype=np.float32
                         )
                         assert lm_array.shape == (33, 3), 'Unexpected landmarks shape: {}'.format(landmarks.shape)
+                        print(lm_array.shape)
                         if classifier_rep_count:
                             pose_classification_reps = pose_classifier_reps_count(lm_array)
+                            print("Incoming landmark array:", lm_array)
+                            print(pose_classification_reps)
                             rep_counter(pose_classification_reps)
                             classifier_prediction.append(max(pose_classification_reps))
                             self.put_text_safe(frame, f"Pose: {max(pose_classification_reps)}", (10, 60))
