@@ -80,11 +80,8 @@ class VideoInferencer(BaseInferencer):
                                 dtype=np.float32
                         )
                         assert lm_array.shape == (33, 3), 'Unexpected landmarks shape: {}'.format(landmarks.shape)
-                        print(lm_array.shape)
                         if classifier_rep_count:
                             pose_classification_reps = pose_classifier_reps_count(lm_array)
-                            print("Incoming landmark array:", lm_array)
-                            print(pose_classification_reps)
                             rep_counter(pose_classification_reps)
                             classifier_prediction.append(max(pose_classification_reps))
                             self.put_text_safe(frame, f"Pose: {max(pose_classification_reps)}", (10, 60))

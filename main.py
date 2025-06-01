@@ -11,7 +11,7 @@ def main():
 
     video_inference = VideoInferencer(debug_mode=True)
     video_inference.inference(
-        stream_path="trainee_videos/legraises.mp4",
+        stream_path="trainee_videos/legraises_7.mp4",
         trainer_videos="trainer_videos",
         output_path="data/output",
         show=True,
