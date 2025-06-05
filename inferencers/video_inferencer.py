@@ -5,9 +5,12 @@ from typing import Tuple, Union
 import cv2 as cv
 import numpy as np
 
-from data_processing.pose_classifier import PoseClassifier
+from data_processing.error_classification import display_class_name
+from data_processing.pose_classifier import PoseClassifier, collect_and_classify_pose_images
+from data_processing.pose_frame_identifier import extract_best_up_down_frames_from_folder
 from data_processing.repetition_counter import RepetitionCounter
 from inferencers.base_inferencer import BaseInferencer
+from utils.utils import extract_frames_from_videos
 
 
 class VideoInferencer(BaseInferencer):
@@ -19,20 +22,35 @@ class VideoInferencer(BaseInferencer):
 
     def inference(self,
                   stream_path: Union[str, int]=0,
+                  trainer_videos: Union[str, int]=0,
                   output_path: str=None,
                   show=True,
-                  should_infer: bool=True,
-                  classifier_inputs: str=None) -> Tuple[list, list]:
+                  should_infer: bool= True,
+                  add_new_data= False,
+                  classifier_errors= "",
+                  exercise_name= "" ,
+                  classifier_rep_count= "") -> Tuple[list, list]:
         should_show = show
         cap = cv.VideoCapture(stream_path)
-        if classifier_inputs:
-            self.logger.info("Pose classification is enabled.")
-            pose_classifier = PoseClassifier(pose_samples_file=classifier_inputs)
-            rep_counter = RepetitionCounter("pull-up_down")
 
         video_writer = None
         features = []
         classifier_prediction = []
+        if add_new_data:
+            extract_frames_from_videos(trainer_videos, "frames", exercise_name=exercise_name)
+            print(trainer_videos)
+            extract_best_up_down_frames_from_folder(
+                videos_folder= f"{trainer_videos}/good_form",
+                output_dir= "frames",
+                exercise_name= exercise_name,
+                top_k= 40
+            )
+            collect_and_classify_pose_images(base_dir="frames", exercise_name=exercise_name)
+        if classifier_rep_count or classifier_errors:
+            self.logger.info("Pose classification is enabled.")
+            pose_classifier_reps_count = PoseClassifier(pose_samples_file=classifier_rep_count)
+            pose_classifier_errors = PoseClassifier(pose_samples_file=classifier_errors)
+            rep_counter = RepetitionCounter(exercise_name +"_down")
 
         if cap.isOpened():
             ret, frame = cap.read()
@@ -56,20 +74,43 @@ class VideoInferencer(BaseInferencer):
                 if landmarks is not None:
                     features.append(landmarks.landmark)
 
-                    if classifier_inputs:
+                    if classifier_rep_count or classifier_errors:
                         lm_array = np.array(
                             [[lmk.x * width, lmk.y * height, lmk.z * width] for lmk in landmarks.landmark],
                                 dtype=np.float32
                         )
                         assert lm_array.shape == (33, 3), 'Unexpected landmarks shape: {}'.format(landmarks.shape)
-                        pose_classification = pose_classifier(lm_array)
-                        rep_counter(pose_classification)
-                        classifier_prediction.append(max(pose_classification))
-                        self.logger.debug(
-                            f"Pose classification: {pose_classification}, Repetition count: {rep_counter.n_repeats}"
-                        )
-                        self.put_text_safe(frame, f"Pose: {max(pose_classification)}", (10, 60))
-                        self.put_text_safe(frame, f"Reps: {rep_counter.n_repeats}", (10, 90))
+                        if classifier_rep_count:
+                            pose_classification_reps = pose_classifier_reps_count(lm_array)
+                            rep_counter(pose_classification_reps)
+                            classifier_prediction.append(max(pose_classification_reps))
+                            self.put_text_safe(frame, f"Pose: {max(pose_classification_reps)}", (10, 60))
+                            self.put_text_safe(frame, f"Reps: {rep_counter.n_repeats}", (10, 90))
+                        if classifier_errors:
+                            pose_classification_errors = pose_classifier_errors(lm_array)
+                            if pose_classification_errors:
+                                # Get the top class and its vote count
+                                top_class = max(pose_classification_errors, key=pose_classification_errors.get)
+                                top_count = pose_classification_errors[top_class]
+
+                                if top_count >= 9:
+                                    self.put_text_safe(
+                                        frame,
+                                        f"Mistakes: {display_class_name(top_class)}",
+                                        position=(10, 120),
+                                        color=(0, 0, 255)
+                                    )
+                                    #self.logger.debug(f"'{top_class}' with count {top_count}")
+                                else:
+                                    #self.logger.debug(f"'{top_class}' with count {top_count} test test")
+                                    self.put_text_safe(
+                                        frame,
+                                        f"Mistakes: {display_class_name(top_class)}",
+                                        position=(10, 120),
+                                        color=(0, 0, 255)
+                                    )
+                            else:
+                                self.logger.warning("No error classification result available for this frame.")
 
                 if should_show:
                     self.draw_hud(frame)

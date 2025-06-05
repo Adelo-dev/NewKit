@@ -11,11 +11,15 @@ def main():
 
     video_inference = VideoInferencer(debug_mode=True)
     video_inference.inference(
-        stream_path="data/sample_data/sample_knee_pushups.mp4",
+        stream_path="trainee_videos/legraises_7.mp4",
+        trainer_videos="trainer_videos",
         output_path="data/output",
-        show=False,
+        show=True,
         should_infer=True,
-        classifier_inputs='data/sample_data/sample_dataset.csv'
+        classifier_errors="data/exercises/legraises/legraises_errors.csv",
+        classifier_rep_count="data/exercises/legraises/legraises_rep_count.csv",
+        add_new_data=True,
+        exercise_name="legraises"
     )
 
 if __name__ == "__main__":

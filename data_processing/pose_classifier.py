@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import shutil
+import tempfile
 import uuid
+from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -151,3 +154,62 @@ class PoseClassifier(object):
         n_images = len([n for n in os.listdir(os.path.join(images_folder, pose_class_name))
             if not n.startswith('.')])
         self._logger.info('  {}: {}'.format(pose_class_name, n_images))
+
+def collect_and_classify_pose_images(base_dir, exercise_name):
+    temp_dir_errors = tempfile.mkdtemp()
+    temp_dir_reps = tempfile.mkdtemp()
+    output_dir = Path(f"data/exercises/{exercise_name}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Define folders
+    folders = {
+        "bad_form": Path(base_dir) / exercise_name / "bad_form",
+        f"{exercise_name}_up": Path(base_dir) / exercise_name / "good_form" / f"{exercise_name}_up",
+        f"{exercise_name}_down": Path(base_dir) / exercise_name / "good_form" / f"{exercise_name}_down",
+    }
+
+    # Copy ALL into errors temp dir
+    for class_name, src in folders.items():
+        if src.is_dir():
+            dst = Path(temp_dir_errors) / class_name
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in src.glob("*.[jpJP][pnPN]*[gG]"):
+                shutil.copy(f, dst / f.name)
+
+    # Copy only good_form into reps temp dir
+    for key in [f"{exercise_name}_up", f"{exercise_name}_down"]:
+        src = folders[key]
+        if src.is_dir():
+            dst = Path(temp_dir_reps) / key
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in src.glob("*.[jpJP][pnPN]*[gG]"):
+                shutil.copy(f, dst / f.name)
+
+    # Generate CSVs using PoseClassifier
+    classifier = PoseClassifier()
+
+    csv_path_errors = Path(classifier.generate_pose_samples(temp_dir_errors, str(output_dir)))
+    final_path_errors = output_dir / f"{exercise_name}_errors.csv"
+
+    csv_path_reps = Path(classifier.generate_pose_samples(temp_dir_reps, str(output_dir)))
+    final_path_reps = output_dir / f"{exercise_name}_rep_count.csv"
+
+    # Append or move errors.csv
+    if final_path_errors.exists():
+        df = pd.concat([pd.read_csv(final_path_errors), pd.read_csv(csv_path_errors)], ignore_index=True)
+        df.to_csv(final_path_errors, index=False)
+        csv_path_errors.unlink()
+    else:
+        csv_path_errors.rename(final_path_errors)
+
+    # Append or move rep_count.csv
+    if final_path_reps.exists():
+        df = pd.concat([pd.read_csv(final_path_reps), pd.read_csv(csv_path_reps)], ignore_index=True)
+        df.to_csv(final_path_reps, index=False)
+        csv_path_reps.unlink()
+    else:
+        csv_path_reps.rename(final_path_reps)
+
+    print(f"✅ Errors CSV saved to: {final_path_errors}")
+    print(f"✅ Rep Count CSV saved to: {final_path_reps}")
+
