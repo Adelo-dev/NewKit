@@ -10,6 +10,7 @@ from tqdm import tqdm
 from data_processing.pose_embedding import FullBodyPoseEmbedder
 from data_processing.utils import flatten_landmark_features
 
+#TEMP file for finding the best 40 frames in up and down state of an excerise
 
 def get_best_indices(signal, labels, cluster_id, cluster_center, top_k):
     return sorted(
